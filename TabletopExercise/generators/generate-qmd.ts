@@ -423,6 +423,19 @@ function renderHandout(
     if (artifactContent) {
       out += `\n*${artifactContent.slice(0, 200)}${artifactContent.length > 200 ? '...' : ''}*\n`;
     }
+  } else if (artifact.html_data) {
+    // Render HTML template output as a raw HTML block in Quarto.
+    // Strip the document wrapper (<!DOCTYPE html>, <html>, <head>, <body> tags)
+    // and embed the <style> + body contents inside a scoped container.
+    const html = artifact.html_data;
+    const styleMatch = html.match(/<style>([\s\S]*?)<\/style>/);
+    const bodyMatch = html.match(/<body>([\s\S]*?)<\/body>/);
+    const scopeClass = `artifact-${artifact.id.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    const scopedStyle = styleMatch
+      ? styleMatch[1].replace(/\bbody\b/g, `.${scopeClass}`).replace(/\btable\b/g, `.${scopeClass} table`).replace(/\bthead\b/g, `.${scopeClass} thead`).replace(/\btbody\b/g, `.${scopeClass} tbody`)
+      : '';
+    const bodyContent = bodyMatch ? bodyMatch[1] : html;
+    out += `\n\`\`\`{=html}\n<style>\n${scopedStyle}\n</style>\n<div class="${scopeClass}">\n${bodyContent}\n</div>\n\`\`\`\n`;
   } else if (artifactContent) {
     out += '\n```\n' + artifactContent + '\n```\n';
   }
