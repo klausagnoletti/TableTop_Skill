@@ -797,6 +797,7 @@ console.log('\nTest 25: generate_attack_vector_images (email → html_data, no A
     artifacts: [{
       id: 'ART-001',
       type: 'email',
+      image_subtype: 'phishing_email',
       title: 'Urgent: Verify Your Account',
       artifact_content: 'Dear User, your account will be suspended unless you verify immediately.',
     }],
@@ -828,6 +829,7 @@ console.log('\nTest 26: generate_evidence_images (log → html_data, no API key 
     artifacts: [{
       id: 'ART-002',
       type: 'log',
+      image_subtype: 'network_capture',
       title: 'Suspicious Outbound Traffic',
       artifact_content: 'ALERT: outbound connection to 203.0.113.42:443\nDNS query: evil.example.com',
     }],

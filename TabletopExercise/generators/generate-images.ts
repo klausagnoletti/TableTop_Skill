@@ -47,15 +47,15 @@ function styleToSuffix(style?: VisualStyle): string {
   return parts.length > 0 ? `\n\n${parts.join(' ')}` : '';
 }
 
-function subtypeFromArtifact(artifact: Artifact): ImageSubtype {
+function subtypeFromArtifact(artifact: Artifact): ImageSubtype | null {
   if (artifact.image_subtype) return artifact.image_subtype;
   switch (artifact.type) {
     case 'email':      return 'phishing_email';
-    case 'screenshot': return 'ransomware_note';
+    case 'screenshot': return null;               // no safe default; require explicit image_subtype
     case 'document':   return 'fraudulent_invoice';
     case 'log':        return 'network_capture';
     case 'alert':      return 'dark_web_listing';
-    default:           return 'network_diagram';
+    default:           return null;
   }
 }
 
@@ -91,6 +91,12 @@ function buildAttackVectorPrompt(artifact: Artifact, style?: VisualStyle): strin
            + `Label reads "${title}". `
            + `Generic office environment background, slightly suspicious placement. `
            + `Photorealistic product shot.`;
+      break;
+    case 'browser_popup':
+      base = `A screenshot of a browser security popup or fake software update dialog titled "${title}". `
+           + (preview ? `Popup content: "${preview}". ` : '')
+           + `Realistic browser chrome with address bar showing a suspicious domain. `
+           + `Urgent call-to-action button. Convincing but subtly wrong branding.`;
       break;
     default:
       base = `A realistic screenshot or visual representation of a cybersecurity artifact titled "${title}". `
@@ -397,17 +403,23 @@ export async function generateAttackVectorImages(
   const updatedArtifacts = await Promise.all(
     artifacts.map(async (artifact) => {
       const subtype = subtypeFromArtifact(artifact);
-      if (!attackSubtypes.has(subtype) && artifact.type !== 'email' && artifact.type !== 'screenshot' && artifact.type !== 'document') {
+      // Skip artifacts that are not attack-vector types and have no known attack subtype
+      if (subtype !== null && !attackSubtypes.has(subtype) && artifact.type !== 'email' && artifact.type !== 'screenshot' && artifact.type !== 'document') {
         return artifact;
       }
-      // UI subtypes: render via CSS/HTML template (no API key needed, text always legible)
-      const content = artifact.artifact_content ?? artifact.content ?? '';
-      const htmlTemplate = htmlArtifactForSubtype(subtype, artifact.title, content, style);
-      if (htmlTemplate) {
-        imagesGenerated++;
-        return { ...artifact, html_data: htmlTemplate };
+      if (subtype === null && artifact.type !== 'email' && artifact.type !== 'screenshot' && artifact.type !== 'document') {
+        return artifact;
       }
-      // Physical subtypes: fall through to AI provider
+      // HTML path: only when image_subtype is explicitly set (avoids coarse type→subtype fallback)
+      if (artifact.image_subtype) {
+        const content = artifact.artifact_content ?? artifact.content ?? '';
+        const htmlTemplate = htmlArtifactForSubtype(artifact.image_subtype, artifact.title, content, style);
+        if (htmlTemplate) {
+          imagesGenerated++;
+          return { ...artifact, html_data: htmlTemplate };
+        }
+      }
+      // Physical subtypes or no explicit image_subtype: use AI provider
       const prompt = buildAttackVectorPrompt(artifact, style);
       const { imageData, providerUsed } = await generateWithFallback(prompt, { style });
       providersUsed.add(providerUsed);
@@ -427,7 +439,12 @@ export async function generateEvidenceImages(
   artifacts: Artifact[],
   style?: VisualStyle,
 ): Promise<{ updatedArtifacts: Artifact[]; imagesGenerated: number; providerUsed: string }> {
-  const evidenceSubtypes = new Set<ImageSubtype>(['scada_interface', 'network_capture', 'dark_web_listing', 'network_diagram']);
+  const evidenceSubtypes = new Set<ImageSubtype>([
+    'scada_interface', 'network_capture', 'dark_web_listing', 'network_diagram',
+    'azure_ad_signin', 'vpn_gateway_log', 'windows_event_log', 'edr_process_tree',
+    'memory_forensics', 'itsm_ticket', 'threat_intel_report', 'ti_enrichment',
+    'dlp_dashboard', 'reverse_engineering', 'certificate_viewer',
+  ]);
   const providersUsed = new Set<string>();
 
   let imagesGenerated = 0;
@@ -437,14 +454,16 @@ export async function generateEvidenceImages(
       if (!evidenceSubtypes.has(subtype) && artifact.type !== 'log' && artifact.type !== 'alert') {
         return artifact;
       }
-      // UI subtypes: render via CSS/HTML template
-      const content = artifact.artifact_content ?? artifact.content ?? '';
-      const htmlTemplate = htmlArtifactForSubtype(subtype, artifact.title, content, style);
-      if (htmlTemplate) {
-        imagesGenerated++;
-        return { ...artifact, html_data: htmlTemplate };
+      // UI subtypes: render via CSS/HTML template only when image_subtype is explicitly set.
+      if (artifact.image_subtype) {
+        const content = artifact.artifact_content ?? artifact.content ?? '';
+        const htmlTemplate = htmlArtifactForSubtype(artifact.image_subtype, artifact.title, content, style);
+        if (htmlTemplate) {
+          imagesGenerated++;
+          return { ...artifact, html_data: htmlTemplate };
+        }
       }
-      // Physical/diagram subtypes: fall through to AI provider
+      // Physical/diagram subtypes or no explicit image_subtype: use AI provider
       const prompt = buildEvidencePrompt(artifact, style);
       const { imageData, providerUsed } = await generateWithFallback(prompt, { style });
       providersUsed.add(providerUsed);

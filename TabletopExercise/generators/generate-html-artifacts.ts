@@ -25,6 +25,18 @@ const HTML_SUBTYPES = new Set<ImageSubtype>([
   'network_capture',
   'dark_web_listing',
   'scada_interface',
+  'browser_popup',
+  'azure_ad_signin',
+  'vpn_gateway_log',
+  'windows_event_log',
+  'edr_process_tree',
+  'memory_forensics',
+  'itsm_ticket',
+  'threat_intel_report',
+  'ti_enrichment',
+  'dlp_dashboard',
+  'reverse_engineering',
+  'certificate_viewer',
 ]);
 
 export function isHtmlSubtype(subtype: ImageSubtype): boolean {
@@ -47,6 +59,18 @@ function esc(s: string): string {
 /** Normalise content so both real newlines and literal \n sequences split correctly. */
 function splitLines(content: string): string[] {
   return content.replace(/\\n/g, '\n').split('\n').filter(l => l.trim());
+}
+
+/** Split content on '---' into sections; each section is an array of lines. */
+function parseSections(content: string): string[][] {
+  return content.replace(/\\n/g, '\n').split(/\n---\n/).map(
+    section => section.split('\n').filter(l => l.trim())
+  );
+}
+
+/** Parse pipe-delimited line into trimmed fields. */
+function pipeFields(line: string): string[] {
+  return line.split('|').map(f => f.trim());
 }
 
 // ---------------------------------------------------------------------------
@@ -529,6 +553,971 @@ body{background:#2d2d2d;font-family:Arial,sans-serif;font-size:12px;color:#e0e0e
 </body></html>`;
 }
 
+
+// ---------------------------------------------------------------------------
+// Browser popup -- fake software update / installer dialog
+// ---------------------------------------------------------------------------
+
+function renderBrowserPopup(title: string, content: string): string {
+  const lines = splitLines(content);
+
+  // Parse structure: first line = brand, second = product, rest = message + small print
+  const brand = esc(lines[0] ?? title);
+  const product = esc(lines[1] ?? '');
+
+  // Find [ Button ] line if present
+  const btnIdx = lines.findIndex((l, i) => i >= 2 && /^\[.+\]$/.test(l.trim()));
+  const msgLines = btnIdx >= 0 ? lines.slice(2, btnIdx) : lines.slice(2, Math.max(2, lines.length - 2));
+  const smallLines = btnIdx >= 0 ? lines.slice(btnIdx + 1) : lines.slice(Math.max(2, lines.length - 2));
+  const btnLabel = btnIdx >= 0 ? esc(lines[btnIdx].replace(/^\[|\]$/g, '').trim()) : 'Install Now';
+
+  // Extract domain for address bar (first URL-like token in content)
+  const domainMatch = content.match(/(?:Download source|download source|Source):\s*(\S+)/i)
+    ?? content.match(/([a-z0-9][a-z0-9-]*(?:\.[a-z]{2,}){1,3}\/\S*)/i)
+    ?? content.match(/([a-z0-9][a-z0-9-]*\.[a-z]{2,}(?:\.[a-z]{2,})?)/i);
+  const domain = domainMatch ? esc(domainMatch[1].split('\n')[0].trim()) : 'update-server.net';
+
+  const msgHtml = msgLines.map(l => `<p>${esc(l)}</p>`).join('') || '<p>Update required to continue.</p>';
+  const smallHtml = smallLines.map(l => `<div>${esc(l)}</div>`).join('');
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#e8e8e8;display:flex;align-items:center;justify-content:center;min-height:500px;font-family:Arial,sans-serif}
+.popup{border:1px solid #cccccc;border-radius:8px;max-width:480px;width:100%;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.titlebar{background:#f1f3f4;border-bottom:1px solid #cccccc;padding:.4rem .8rem;font-size:.78em;color:#555;display:flex;justify-content:space-between;align-items:center}
+.close{color:#888;font-size:14px;cursor:default}
+.body{padding:1.8rem 2rem 1.4rem;text-align:center;background:#fff}
+.logo{font-size:1.6em;font-weight:700;color:#cc0000;letter-spacing:.05em;margin-bottom:.2rem}
+.product{font-size:.9em;color:#666;margin-bottom:1rem}
+.message{font-size:1em;margin-bottom:1.4rem;line-height:1.5;color:#222}
+.message p{margin-bottom:.4em}
+.button{display:inline-block;background:#cc0000;color:#fff;padding:.55rem 2rem;border-radius:4px;font-weight:700;font-size:.95em;text-decoration:none;cursor:default}
+.smallprint{font-size:.65em;color:#999;margin-top:1rem;word-break:break-all;line-height:1.6}
+</style></head><body>
+<div class="popup">
+  <div class="titlebar">
+    <span>${domain}</span>
+    <span class="close">&#10005;</span>
+  </div>
+  <div class="body">
+    <div class="logo">${brand}</div>
+    ${product ? `<div class="product">${product}</div>` : ''}
+    <div class="message">${msgHtml}</div>
+    <div class="button">${btnLabel}</div>
+    ${smallHtml ? `<div class="smallprint">${smallHtml}</div>` : ''}
+  </div>
+</div>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Azure AD Identity Protection — sign-in logs
+// ---------------------------------------------------------------------------
+
+function renderAzureAdSignin(title: string, content: string): string {
+  const lines = splitLines(content);
+
+  const defaultRows = [
+    '2026-04-07 08:12:33|j.smith@contoso.com|Outlook Mobile|198.51.100.14|Success|Low|Password|Yes|Granted',
+    '2026-04-07 08:15:01|a.jones@contoso.com|Azure Portal|203.0.113.88|Failure|High|Password|No|Blocked',
+    '2026-04-07 08:22:47|m.chen@contoso.com|SharePoint Online|192.0.2.201|Success|None|FIDO2|Yes|Granted',
+    '2026-04-07 08:31:19|j.smith@contoso.com|Teams|198.51.100.14|Success|Medium|Password|Yes|Granted',
+    '2026-04-07 08:45:02|s.kumar@contoso.com|Exchange Online|203.0.113.42|Failure|High|Password|No|Blocked',
+  ];
+
+  const dataLines = lines.length > 0 ? lines : defaultRows;
+
+  const riskColor = (r: string): string => {
+    const rl = r.toLowerCase();
+    if (rl === 'high') return '#e81123';
+    if (rl === 'medium') return '#c19c00';
+    if (rl === 'low') return '#107c10';
+    return '#888';
+  };
+
+  const rows = dataLines.slice(0, 20).map((line, i) => {
+    const f = pipeFields(line);
+    const risk = f[5] ?? 'None';
+    const bg = i % 2 === 0 ? '#1e1e1e' : '#252526';
+    return `<tr style="background:${bg}">
+      <td>${esc(f[0] ?? '')}</td><td>${esc(f[1] ?? '')}</td><td>${esc(f[2] ?? '')}</td>
+      <td>${esc(f[3] ?? '')}</td><td>${esc(f[4] ?? '')}</td>
+      <td><span style="background:${riskColor(risk)};color:#fff;padding:2px 8px;border-radius:3px;font-size:11px">${esc(risk)} Risk</span></td>
+      <td>${esc(f[6] ?? '')}</td><td>${esc(f[7] ?? '')}</td><td>${esc(f[8] ?? '')}</td>
+    </tr>`;
+  });
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1b1b1f;color:#d4d4d4;font-family:'Segoe UI',sans-serif;font-size:13px}
+.breadcrumb{background:#252526;padding:10px 20px;font-size:12px;color:#9ca3af;border-bottom:1px solid #333}
+.breadcrumb span{color:#0078d4}
+.filter-bar{background:#1e1e1e;padding:8px 20px;display:flex;gap:12px;align-items:center;border-bottom:1px solid #333;font-size:12px;color:#888}
+.filter-bar .pill{background:#333;padding:3px 10px;border-radius:12px;font-size:11px;color:#ccc}
+table{width:100%;border-collapse:collapse}
+thead tr{background:#252526}
+thead th{padding:8px 10px;text-align:left;font-size:11px;color:#9ca3af;font-weight:600;border-bottom:1px solid #444}
+tbody td{padding:6px 10px;font-size:12px;color:#d4d4d4;border-bottom:1px solid #333}
+.title-bar{background:#0078d4;padding:12px 20px;color:#fff;font-weight:600;font-size:15px}
+</style></head><body>
+<div class="title-bar">${esc(title)}</div>
+<div class="breadcrumb">Microsoft Entra ID &gt; <span>Sign-in logs</span></div>
+<div class="filter-bar">
+  <span>Filter:</span>
+  <span class="pill">Last 24 hours</span>
+  <span class="pill">All users</span>
+  <span class="pill">All applications</span>
+  <span style="margin-left:auto;color:#0078d4">${rows.length} results</span>
+</div>
+<table>
+  <thead><tr><th>Date/Time</th><th>User</th><th>Application</th><th>IP Address</th><th>Status</th><th>Risk Level</th><th>Auth Method</th><th>MFA</th><th>Conditional Access</th></tr></thead>
+  <tbody>${rows.join('')}</tbody>
+</table>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// VPN Gateway Console — enterprise VPN log
+// ---------------------------------------------------------------------------
+
+function renderVpnGatewayLog(title: string, content: string): string {
+  const lines = splitLines(content);
+
+  const defaultRows = [
+    '2026-04-07 07:59:12|jsmith|198.51.100.14|Kerberos|10.0.1.0/24|Connected',
+    '2026-04-07 08:02:44|ajones|203.0.113.88|NTLM|10.0.2.0/24|Connected',
+    '2026-04-07 08:15:33|mchen|192.0.2.201|Kerberos|10.0.1.0/24|Connected',
+    '2026-04-07 08:31:01|ajones|203.0.113.88|NTLM|10.0.3.0/24|Disconnected',
+    '2026-04-07 08:45:19|skumar|203.0.113.42|NTLM|10.0.1.0/24|Connected',
+  ];
+
+  const dataLines = lines.length > 0 ? lines : defaultRows;
+
+  const rows = dataLines.slice(0, 20).map((line) => {
+    const f = pipeFields(line);
+    const authType = (f[3] ?? '').trim();
+    const isNtlm = authType.toUpperCase() === 'NTLM';
+    const status = (f[5] ?? '').trim().toLowerCase();
+    const statusDot = status === 'connected' ? '#22c55e' : '#666';
+    const rowBg = isNtlm ? 'rgba(210,153,34,0.12)' : 'transparent';
+    const authColor = isNtlm ? '#d29922' : '#58a6ff';
+    return `<tr style="background:${rowBg}">
+      <td>${esc(f[0] ?? '')}</td><td>${esc(f[1] ?? '')}</td><td>${esc(f[2] ?? '')}</td>
+      <td style="color:${authColor};font-weight:600">${esc(authType)}</td>
+      <td>${esc(f[4] ?? '')}</td>
+      <td><span style="color:${statusDot};margin-right:6px">&#9679;</span>${esc(f[5] ?? '')}</td>
+    </tr>`;
+  });
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#c9d1d9;font-family:'Courier New',monospace;font-size:12px}
+.header{background:#161b22;padding:12px 20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:14px;color:#58a6ff;font-weight:700}
+.header .gw{font-size:11px;color:#8b949e}
+table{width:100%;border-collapse:collapse}
+thead tr{background:#161b22}
+thead th{padding:8px 10px;text-align:left;font-size:11px;color:#8b949e;font-weight:600;border-bottom:1px solid #30363d}
+tbody td{padding:6px 10px;font-size:12px;border-bottom:1px solid #21262d}
+</style></head><body>
+<div class="header">
+  <h1>VPN Gateway Console &mdash; ${esc(title)}</h1>
+  <div class="gw">Gateway: GW-PROD-01 &middot; Uptime: 47d 12h &middot; Active sessions: ${rows.length}</div>
+</div>
+<table>
+  <thead><tr><th>Timestamp</th><th>Account</th><th>Source IP</th><th>Auth Type</th><th>Destination</th><th>Status</th></tr></thead>
+  <tbody>${rows.join('')}</tbody>
+</table>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Windows Event Log — Event Viewer
+// ---------------------------------------------------------------------------
+
+function renderWindowsEventLog(title: string, content: string): string {
+  const lines = splitLines(content);
+
+  const defaultRows = [
+    'Information|2026-04-07 08:00:12|Microsoft-Windows-Security-Auditing|4624|Logon',
+    'Information|2026-04-07 08:00:14|Microsoft-Windows-Security-Auditing|4672|Special Logon',
+    'Warning|2026-04-07 08:05:33|Microsoft-Windows-Security-Auditing|4625|Logon',
+    'Error|2026-04-07 08:12:01|Microsoft-Windows-Security-Auditing|4625|Logon',
+    'Information|2026-04-07 08:15:44|Microsoft-Windows-Security-Auditing|4634|Logoff',
+  ];
+
+  const eventLines: string[] = [];
+  const detailLines: string[] = [];
+
+  const dataLines = lines.length > 0 ? lines : defaultRows;
+  for (const l of dataLines) {
+    if (l.startsWith('DETAIL:')) {
+      detailLines.push(l.slice(7).trim());
+    } else {
+      eventLines.push(l);
+    }
+  }
+
+  const levelIcon = (lvl: string): string => {
+    const ll = lvl.toLowerCase();
+    if (ll === 'error') return '<span style="color:#e81123" title="Error">&#9940;</span>';
+    if (ll === 'warning') return '<span style="color:#c19c00" title="Warning">&#9888;</span>';
+    return '<span style="color:#0078d4" title="Information">&#8505;</span>';
+  };
+
+  const rows = eventLines.slice(0, 20).map((line) => {
+    const f = pipeFields(line);
+    return `<tr>
+      <td>${levelIcon(f[0] ?? 'Information')} ${esc(f[0] ?? '')}</td>
+      <td>${esc(f[1] ?? '')}</td><td>${esc(f[2] ?? '')}</td>
+      <td>${esc(f[3] ?? '')}</td><td>${esc(f[4] ?? '')}</td>
+    </tr>`;
+  });
+
+  const detailHtml = detailLines.length > 0
+    ? detailLines.map(l => esc(l)).join('\n')
+    : 'An account was successfully logged on.\n\nSubject:\n  Security ID: S-1-5-18\n  Account Name: SYSTEM\n\nLogon Type: 3 (Network)';
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;font-size:12px;background:#fff;display:flex;flex-direction:column;height:600px}
+.titlebar{background:#f0f0f0;padding:6px 12px;font-size:13px;font-weight:600;color:#1e1e1e;border-bottom:1px solid #ccc;display:flex;align-items:center;gap:8px}
+.content{display:flex;flex:1;overflow:hidden}
+.tree{width:160px;background:#f5f5f5;border-right:1px solid #ddd;padding:8px 0;font-size:12px;flex-shrink:0;overflow-y:auto}
+.tree-item{padding:3px 12px;cursor:pointer;color:#333}
+.tree-item.active{background:#cde;font-weight:600}
+.tree-item.indent{padding-left:28px;font-size:11px}
+.right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+table{width:100%;border-collapse:collapse;flex:1}
+thead tr{background:#f0f0f0}
+thead th{padding:5px 8px;text-align:left;font-size:11px;color:#333;font-weight:600;border-bottom:1px solid #ccc;position:sticky;top:0;background:#f0f0f0}
+tbody{overflow-y:auto}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#e8f0fe}
+tbody td{padding:4px 8px;font-size:11px;color:#333;border-bottom:1px solid #eee}
+.detail{height:160px;border-top:2px solid #ccc;background:#f5f5f5;padding:10px 14px;overflow-y:auto}
+.detail h4{font-size:12px;color:#333;margin-bottom:6px}
+.detail pre{font-family:'Consolas',monospace;font-size:11px;color:#333;white-space:pre-wrap;line-height:1.5}
+</style></head><body>
+<div class="titlebar">&#128187; Event Viewer &mdash; ${esc(title)}</div>
+<div class="content">
+  <div class="tree">
+    <div class="tree-item">Custom Views</div>
+    <div class="tree-item">Windows Logs</div>
+    <div class="tree-item indent">Application</div>
+    <div class="tree-item indent active">Security</div>
+    <div class="tree-item indent">Setup</div>
+    <div class="tree-item indent">System</div>
+    <div class="tree-item">Applications and Services</div>
+  </div>
+  <div class="right">
+    <table>
+      <thead><tr><th>Level</th><th>Date and Time</th><th>Source</th><th>Event ID</th><th>Task Category</th></tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>
+    <div class="detail">
+      <h4>Event Details</h4>
+      <pre>${detailHtml}</pre>
+    </div>
+  </div>
+</div>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// CrowdStrike Falcon — EDR Process Tree
+// ---------------------------------------------------------------------------
+
+function renderEdrProcessTree(title: string, content: string): string {
+  const lines = splitLines(content);
+
+  const defaultLines = [
+    'explorer.exe (PID 1024) -- Windows Explorer',
+    '  cmd.exe (PID 4812) -- C:\\Windows\\System32\\cmd.exe',
+    '    powershell.exe (PID 5920) -- powershell -enc SQBFAFgA... [SUSPICIOUS]',
+    '      rundll32.exe (PID 6104) -- rundll32 C:\\Users\\Public\\payload.dll,Start [MALICIOUS]',
+  ];
+
+  const dataLines = lines.length > 0 ? lines : defaultLines;
+
+  const treeNodes = dataLines.slice(0, 20).map((line) => {
+    const stripped = line.replace(/\t/g, '  ');
+    const leadingSpaces = stripped.match(/^(\s*)/)?.[1].length ?? 0;
+    const depth = Math.floor(leadingSpaces / 2);
+    const text = stripped.trim();
+
+    let badge = '';
+    let badgeBg = '';
+    let cleanText = text;
+    if (text.includes('[MALICIOUS]')) {
+      badge = 'MALICIOUS';
+      badgeBg = '#ff4d4f';
+      cleanText = text.replace('[MALICIOUS]', '').trim();
+    } else if (text.includes('[SUSPICIOUS]')) {
+      badge = 'SUSPICIOUS';
+      badgeBg = '#d29922';
+      cleanText = text.replace('[SUSPICIOUS]', '').trim();
+    }
+
+    const pidMatch = cleanText.match(/\(PID\s*(\d+)\)/);
+    const pid = pidMatch ? pidMatch[1] : '';
+    const parts = cleanText.split('--');
+    const procName = esc(parts[0]?.replace(/\(PID\s*\d+\)/, '').trim() ?? '');
+    const cmdLine = esc(parts[1]?.trim() ?? '');
+
+    return `<div style="padding:4px 0 4px ${depth * 24}px;border-left:${depth > 0 ? '2px solid #334155' : 'none'};margin-left:${depth > 0 ? (depth - 1) * 24 + 11 : 0}px;font-family:'Courier New',monospace;font-size:12px">
+      <span style="color:#e2e8f0;font-weight:600">${procName}</span>
+      ${pid ? `<span style="color:#64748b;font-size:11px;margin-left:6px">(PID ${esc(pid)})</span>` : ''}
+      ${cmdLine ? `<span style="color:#94a3b8;font-size:11px;margin-left:8px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom">${cmdLine}</span>` : ''}
+      ${badge ? `<span style="background:${badgeBg};color:#fff;padding:1px 8px;border-radius:3px;font-size:10px;font-weight:700;margin-left:8px">${badge}</span>` : ''}
+    </div>`;
+  });
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b1120;color:#e2e8f0;font-family:'Segoe UI',sans-serif;font-size:13px}
+.header{background:#111827;padding:12px 20px;border-bottom:2px solid #ff4d4f;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:14px;color:#ff4d4f;font-weight:700}
+.header .sub{font-size:11px;color:#64748b}
+.breadcrumb{background:#0f172a;padding:8px 20px;font-size:12px;color:#64748b;border-bottom:1px solid #1e293b}
+.breadcrumb span{color:#ff4d4f}
+.tree{padding:16px 20px}
+.meta{padding:12px 20px;background:#0f172a;border-bottom:1px solid #1e293b;font-size:11px;color:#64748b;display:flex;gap:24px}
+.meta .label{color:#94a3b8}
+</style></head><body>
+<div class="header">
+  <h1>&#9872; CrowdStrike Falcon</h1>
+  <div class="sub">Endpoint Detection &amp; Response</div>
+</div>
+<div class="breadcrumb">Detections &gt; <span>Process Tree</span> &gt; ${esc(title)}</div>
+<div class="meta">
+  <div><span class="label">Host:</span> WS-PC0142</div>
+  <div><span class="label">Detection:</span> ${esc(title)}</div>
+  <div><span class="label">Severity:</span> <span style="color:#ff4d4f">Critical</span></div>
+  <div><span class="label">Time:</span> 2026-04-07 08:15:33 UTC</div>
+</div>
+<div class="tree">
+${treeNodes.join('\n')}
+</div>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Volatility — Memory Forensics Terminal
+// ---------------------------------------------------------------------------
+
+function renderMemoryForensics(title: string, content: string): string {
+  const sections = parseSections(content);
+
+  const defaultSections = [
+    [
+      'vol.py -f memory.dmp windows.pslist',
+      'PID    PPID   Name              Threads  Handles  SessionId',
+      '4      0      System            142      1680     0',
+      '416    4      smss.exe          2        29       0',
+      '556    548    csrss.exe         12       512      0',
+      '4812   1024   cmd.exe           1        24       1',
+      '5920   4812   powershell.exe    8        312      1',
+      '6104   5920   rundll32.exe      3        87       1',
+    ],
+    [
+      'vol.py -f memory.dmp windows.netscan',
+      'Offset           Proto  LocalAddr       LocalPort  ForeignAddr      ForeignPort  State        PID   Owner',
+      '0x7d8a3010       TCPv4  10.0.0.42       49673      203.0.113.42     443          ESTABLISHED  6104  rundll32.exe',
+      '0x7d8b1240       TCPv4  10.0.0.42       49801      198.51.100.14    80           CLOSE_WAIT   5920  powershell.exe',
+      '0x7d8c0880       UDPv4  10.0.0.42       137        *                *                         4     System',
+    ],
+  ];
+
+  const dataSections = sections.length > 0 && sections[0].length > 0 ? sections : defaultSections;
+
+  const sectionHtml = dataSections.map((sec) => {
+    if (sec.length === 0) return '';
+    const cmd = sec[0];
+    const output = sec.slice(1);
+    return `<div style="margin-bottom:20px">
+      <div style="color:#00ff41;font-weight:700;margin-bottom:4px">$ ${esc(cmd)}</div>
+      ${output.map(l => `<div style="color:#d4d4d4">${esc(l)}</div>`).join('\n')}
+    </div>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;color:#00ff41;font-family:'Courier New',monospace;font-size:12px;padding:16px;min-height:600px}
+.title{color:#00ff41;font-size:14px;font-weight:700;margin-bottom:4px}
+.subtitle{color:#666;font-size:11px;margin-bottom:16px}
+.prompt{color:#888;margin-bottom:16px;font-size:11px}
+.output{white-space:pre;line-height:1.5;font-size:12px}
+</style></head><body>
+<div class="title">Volatility 3 Framework &mdash; ${esc(title)}</div>
+<div class="subtitle">Memory forensics analysis output</div>
+<div class="prompt">[analyst@forensics ~]$ # Memory image analysis</div>
+<div class="output">
+${sectionHtml}
+</div>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// ServiceNow — ITSM Ticket
+// ---------------------------------------------------------------------------
+
+function renderItsmTicket(title: string, content: string): string {
+  const sections = parseSections(content);
+
+  const defaultSections = [
+    [
+      'Number: INC0012847',
+      'Priority: P2',
+      'State: In Progress',
+      'Category: Security',
+      'Assigned To: SOC Tier 2 - M. Chen',
+      'Caller: J. Smith',
+      'Short Description: Suspicious outbound connections detected from WS-PC0142',
+      'Configuration Item: WS-PC0142',
+      'Impact: 2 - Medium',
+      'Urgency: 1 - High',
+    ],
+    [
+      '2026-04-07 08:45 - SOC Tier 1 (A. Jones): Alert received from SIEM. Suspicious outbound traffic to 203.0.113.42 on port 443. Escalating to Tier 2.',
+      '2026-04-07 09:10 - SOC Tier 2 (M. Chen): Confirmed C2 beaconing pattern. Isolating endpoint WS-PC0142. Initiating IR playbook.',
+      '2026-04-07 09:30 - SOC Tier 2 (M. Chen): Memory dump acquired. EDR process tree shows rundll32.exe loading suspicious DLL.',
+    ],
+  ];
+
+  const dataSections = sections.length > 0 && sections[0].length > 0 ? sections : defaultSections;
+
+  const fields = dataSections[0] ?? [];
+  const activities = dataSections[1] ?? [];
+
+  const priorityMatch = fields.find(l => l.toLowerCase().startsWith('priority'))?.split(':')[1]?.trim() ?? 'P3';
+  const priorityColor = (p: string): string => {
+    if (p.startsWith('P1')) return '#e81123';
+    if (p.startsWith('P2')) return '#f59e0b';
+    if (p.startsWith('P3')) return '#c19c00';
+    return '#107c10';
+  };
+
+  const ticketNumber = fields.find(l => l.toLowerCase().startsWith('number'))?.split(':')[1]?.trim() ?? 'INC0000000';
+
+  const fieldRows = fields.map((line) => {
+    const idx = line.indexOf(':');
+    if (idx < 0) return '';
+    const label = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim();
+    return `<div class="field"><div class="field-label">${esc(label)}</div><div class="field-value">${esc(value)}</div></div>`;
+  }).join('');
+
+  const activityHtml = activities.map((line) => {
+    return `<div class="activity-item"><div class="activity-dot"></div><div class="activity-text">${esc(line)}</div></div>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#f5f5f5;font-family:'Segoe UI',sans-serif;font-size:13px;color:#333}
+.header{background:#293e40;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:15px;color:#fff;font-weight:600}
+.header .badge{padding:3px 12px;border-radius:3px;font-size:12px;font-weight:700;color:#fff}
+.card{background:#fff;margin:16px 20px;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.1);padding:20px}
+.card h2{font-size:14px;color:#293e40;margin-bottom:14px;border-bottom:1px solid #e5e7eb;padding-bottom:8px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px}
+.field{display:flex;gap:8px}
+.field-label{color:#6b7280;font-size:12px;min-width:140px;text-align:right;flex-shrink:0}
+.field-value{color:#111;font-size:12px;font-weight:500}
+.activity-section{margin-top:16px}
+.activity-item{display:flex;gap:12px;padding:8px 0;border-left:2px solid #293e40;margin-left:8px;padding-left:16px;position:relative}
+.activity-dot{width:10px;height:10px;background:#293e40;border-radius:50%;position:absolute;left:-6px;top:12px;flex-shrink:0}
+.activity-text{font-size:12px;line-height:1.5;color:#333}
+</style></head><body>
+<div class="header">
+  <h1>&#9776; ServiceNow &mdash; ${esc(ticketNumber)}: ${esc(title)}</h1>
+  <span class="badge" style="background:${priorityColor(priorityMatch)}">${esc(priorityMatch)}</span>
+</div>
+<div class="card">
+  <h2>Incident Details</h2>
+  <div class="fields">${fieldRows}</div>
+</div>
+<div class="card">
+  <h2>Activity Log</h2>
+  <div class="activity-section">${activityHtml}</div>
+</div>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Threat Intel Report — TLP-Classified Advisory
+// ---------------------------------------------------------------------------
+
+function renderThreatIntelReport(title: string, content: string): string {
+  const sections = parseSections(content);
+
+  const defaultSections = [
+    [
+      'TLP:AMBER',
+      'ADVISORY REFERENCE: TI-2026-0407-001',
+      'DATE: 2026-04-07',
+      'ISSUING AUTHORITY: Cyber Threat Intelligence Division',
+    ],
+    [
+      'EXECUTIVE SUMMARY',
+      'A sophisticated threat actor group tracked as VOLT CRANE has been observed targeting critical infrastructure organizations using a novel supply chain compromise technique.',
+    ],
+    [
+      'INDICATORS OF COMPROMISE',
+      'C2 Domain: update-service.example.com',
+      'C2 IP: 203.0.113.42',
+      'Payload Hash (SHA256): e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      'Staging IP: 198.51.100.14',
+    ],
+    [
+      'RECOMMENDED ACTIONS',
+      'Block listed IOCs at network perimeter.',
+      'Hunt for listed process indicators across endpoints.',
+      'Review supply chain access for affected vendors.',
+    ],
+  ];
+
+  const dataSections = sections.length > 0 && sections[0].length > 0 ? sections : defaultSections;
+
+  const tlpLine = (dataSections[0]?.[0] ?? 'TLP:AMBER').toUpperCase();
+  const tlpLevel = tlpLine.replace('TLP:', '').replace('TLP', '').trim() || 'AMBER';
+  const tlpColors: Record<string, { bg: string; fg: string }> = {
+    RED: { bg: '#ff0000', fg: '#fff' },
+    AMBER: { bg: '#ffc000', fg: '#000' },
+    GREEN: { bg: '#33ff00', fg: '#000' },
+    WHITE: { bg: '#ffffff', fg: '#000' },
+  };
+  const tlp = tlpColors[tlpLevel] ?? tlpColors['AMBER'];
+  const tlpBorder = tlpLevel === 'WHITE' ? 'border:1px solid #999;' : '';
+
+  const bodyHtml = dataSections.map((sec, si) => {
+    if (si === 0) {
+      // First section: header info (skip TLP line)
+      return sec.slice(1).map(l => `<div style="font-size:13px;color:#333;margin-bottom:4px">${esc(l)}</div>`).join('');
+    }
+    const heading = sec[0] ?? '';
+    const isHeading = heading === heading.toUpperCase() || heading.endsWith(':');
+    const headingHtml = isHeading
+      ? `<h3 style="font-size:14px;text-transform:uppercase;font-weight:700;color:#1a1a1a;border-bottom:2px solid #333;padding-bottom:4px;margin:20px 0 10px">${esc(heading)}</h3>`
+      : `<p style="margin-bottom:6px">${esc(heading)}</p>`;
+    const restHtml = sec.slice(isHeading ? 1 : 0).map(l => `<p style="font-size:13px;line-height:1.6;margin-bottom:6px">${esc(l)}</p>`).join('');
+    return headingHtml + restHtml;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#fff;font-family:Georgia,'Times New Roman',serif;font-size:13px;color:#333}
+.tlp-banner{padding:10px 20px;text-align:center;font-weight:700;font-size:14px;letter-spacing:2px}
+.title-section{padding:20px 40px;border-bottom:1px solid #ddd}
+.title-section h1{font-size:20px;color:#1a1a1a;margin-bottom:8px}
+.body-content{padding:20px 40px;min-height:400px}
+.footer{padding:12px 40px;border-top:1px solid #ddd;text-align:center;font-size:11px;font-weight:700;letter-spacing:2px}
+</style></head><body>
+<div class="tlp-banner" style="background:${tlp.bg};color:${tlp.fg};${tlpBorder}">TLP:${esc(tlpLevel)} &mdash; DISTRIBUTION RESTRICTED</div>
+<div class="title-section">
+  <h1>${esc(title)}</h1>
+</div>
+<div class="body-content">
+${bodyHtml}
+</div>
+<div class="footer" style="background:${tlp.bg};color:${tlp.fg};${tlpBorder}">TLP:${esc(tlpLevel)}</div>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Threat Intel Enrichment — TI Platform Dashboard
+// ---------------------------------------------------------------------------
+
+function renderTiEnrichment(title: string, content: string): string {
+  const sections = parseSections(content);
+
+  const defaultSections = [
+    [
+      'Indicator: 203.0.113.42',
+      'Type: IPv4 Address',
+      'Reputation Score: 87',
+      'Verdict: Malicious',
+      'First Seen: 2026-03-15',
+      'Last Seen: 2026-04-07',
+      'Country: Unknown (VPN/Proxy)',
+    ],
+    [
+      'WHOIS Information',
+      'Registrar|Registration Date|Expiry|Name Server',
+      'Example Registrar|2025-12-01|2026-12-01|ns1.example.com',
+    ],
+    [
+      'Associated Malware',
+      'Family|Confidence|Source',
+      'VOLT CRANE RAT|High|Internal Sandbox',
+      'CobaltStrike Beacon|Medium|VirusTotal',
+    ],
+    [
+      'Related Indicators',
+      'Indicator|Type|Relationship',
+      'update-service.example.com|Domain|Resolves To',
+      '198.51.100.14|IPv4|Same Campaign',
+    ],
+  ];
+
+  const dataSections = sections.length > 0 && sections[0].length > 0 ? sections : defaultSections;
+
+  // Parse first section for header info
+  const headerFields = dataSections[0] ?? [];
+  const indicator = headerFields.find(l => l.toLowerCase().startsWith('indicator'))?.split(':').slice(1).join(':').trim() ?? title;
+  const scoreStr = headerFields.find(l => l.toLowerCase().includes('score'))?.split(':').slice(1).join(':').trim() ?? '0';
+  const score = parseInt(scoreStr, 10) || 0;
+  const verdict = headerFields.find(l => l.toLowerCase().startsWith('verdict'))?.split(':').slice(1).join(':').trim() ?? 'Unknown';
+  const scoreColor = score > 70 ? '#e81123' : score > 30 ? '#d29922' : '#107c10';
+
+  const headerKV = headerFields.map((l) => {
+    const idx = l.indexOf(':');
+    if (idx < 0) return '';
+    return `<div style="margin-bottom:4px"><span style="color:#8b949e;font-size:11px">${esc(l.slice(0, idx).trim())}:</span> <span style="color:#e2e8f0;font-size:12px">${esc(l.slice(idx + 1).trim())}</span></div>`;
+  }).join('');
+
+  const panelHtml = dataSections.slice(1).map((sec) => {
+    const panelTitle = sec[0] ?? 'Details';
+    const hasTable = (sec[1] ?? '').includes('|');
+    let inner = '';
+    if (hasTable) {
+      const headers = pipeFields(sec[1] ?? '');
+      const rows = sec.slice(2, 12).map(l => {
+        const f = pipeFields(l);
+        return `<tr>${f.map(v => `<td style="padding:4px 8px;border-bottom:1px solid #2d2d5e;font-size:11px;color:#c9d1d9">${esc(v)}</td>`).join('')}</tr>`;
+      }).join('');
+      inner = `<table style="width:100%;border-collapse:collapse"><thead><tr>${headers.map(h => `<th style="padding:4px 8px;text-align:left;font-size:11px;color:#8b949e;border-bottom:1px solid #3d3d6e">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+    } else {
+      inner = sec.slice(1).map(l => {
+        const idx = l.indexOf(':');
+        if (idx >= 0) return `<div style="margin-bottom:3px"><span style="color:#8b949e;font-size:11px">${esc(l.slice(0, idx).trim())}:</span> <span style="color:#c9d1d9;font-size:12px">${esc(l.slice(idx + 1).trim())}</span></div>`;
+        return `<div style="color:#c9d1d9;font-size:12px">${esc(l)}</div>`;
+      }).join('');
+    }
+    return `<div style="background:#16213e;border:1px solid #2d2d5e;border-radius:6px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:600;color:#a78bfa;margin-bottom:8px;border-bottom:1px solid #2d2d5e;padding-bottom:6px">${esc(panelTitle)}</div>
+      ${inner}
+    </div>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#c9d1d9;font-family:'Segoe UI',sans-serif;font-size:13px}
+.header{background:#16213e;padding:16px 20px;border-bottom:1px solid #2d2d5e;display:flex;align-items:center;gap:20px}
+.score-circle{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;flex-shrink:0}
+.header-info{flex:1}
+.tabs{background:#0f172a;padding:0 20px;display:flex;gap:0;border-bottom:1px solid #2d2d5e}
+.tab{padding:10px 16px;font-size:12px;color:#8b949e;cursor:pointer}
+.tab.active{color:#a78bfa;border-bottom:2px solid #a78bfa}
+.panels{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+</style></head><body>
+<div class="header">
+  <div class="score-circle" style="background:${scoreColor}">${score}</div>
+  <div class="header-info">
+    <div style="font-size:16px;font-weight:700;color:#e2e8f0;margin-bottom:4px">${esc(indicator)}</div>
+    <span style="background:${scoreColor};color:#fff;padding:2px 10px;border-radius:3px;font-size:11px;font-weight:600">${esc(verdict)}</span>
+    <div style="margin-top:8px">${headerKV}</div>
+  </div>
+</div>
+<div class="tabs">
+  <div class="tab active">Overview</div>
+  <div class="tab">WHOIS</div>
+  <div class="tab">Malware</div>
+  <div class="tab">Network</div>
+  <div class="tab">Raw Data</div>
+</div>
+<div class="panels">
+${panelHtml}
+</div>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// DLP Dashboard — Data Loss Prevention Management Console
+// ---------------------------------------------------------------------------
+
+function renderDlpDashboard(title: string, content: string): string {
+  const lines = splitLines(content);
+
+  const defaultLines = [
+    'STAT:Total Alerts|142',
+    'STAT:Blocked|87',
+    'STAT:Allowed|41',
+    'STAT:Exceptions|14',
+    '2026-04-07 08:12|PCI-DSS Credit Card Pattern|Block|2.3 MB|j.smith@contoso.com|Blocked',
+    '2026-04-07 08:18|PII SSN Detection|Block|450 KB|a.jones@contoso.com|Blocked',
+    '2026-04-07 08:25|Source Code Upload|Allow|12 MB|m.chen@contoso.com|Allowed (Exception)',
+    '2026-04-07 08:31|Confidential Label|Encrypt|1.1 MB|s.kumar@contoso.com|Encrypted',
+    '2026-04-07 08:45|Large File Transfer|Block|89 MB|j.smith@contoso.com|Blocked',
+  ];
+
+  const dataLines = lines.length > 0 ? lines : defaultLines;
+
+  const statLines = dataLines.filter(l => l.startsWith('STAT:'));
+  const alertLines = dataLines.filter(l => !l.startsWith('STAT:'));
+
+  const statColors = ['#3b82f6', '#e81123', '#107c10', '#d29922'];
+  const stats = statLines.slice(0, 4).map((line, i) => {
+    const f = pipeFields(line.replace('STAT:', ''));
+    return `<div style="flex:1;background:#fff;border-radius:6px;padding:16px;border-top:3px solid ${statColors[i]}">
+      <div style="font-size:11px;color:#6b7280;text-transform:uppercase">${esc(f[0] ?? '')}</div>
+      <div style="font-size:28px;font-weight:700;color:#1e293b;margin-top:4px">${esc(f[1] ?? '0')}</div>
+    </div>`;
+  }).join('');
+
+  const actionColor = (a: string): string => {
+    const al = a.toLowerCase();
+    if (al === 'block') return '#e81123';
+    if (al === 'allow') return '#107c10';
+    if (al === 'encrypt') return '#3b82f6';
+    return '#888';
+  };
+
+  const rows = alertLines.slice(0, 20).map((line) => {
+    const f = pipeFields(line);
+    const action = f[2] ?? '';
+    return `<tr>
+      <td>${esc(f[0] ?? '')}</td><td>${esc(f[1] ?? '')}</td>
+      <td><span style="background:${actionColor(action)};color:#fff;padding:2px 8px;border-radius:3px;font-size:11px">${esc(action)}</span></td>
+      <td>${esc(f[3] ?? '')}</td><td>${esc(f[4] ?? '')}</td><td>${esc(f[5] ?? '')}</td>
+    </tr>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#f8fafc;font-family:'Segoe UI',sans-serif;font-size:13px;display:flex;min-height:600px}
+.sidebar{width:200px;background:#1e293b;padding:16px 0;flex-shrink:0}
+.sidebar h2{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:0 16px;margin-bottom:12px}
+.sidebar .item{padding:8px 16px;color:#cbd5e1;font-size:12px;cursor:pointer}
+.sidebar .item.active{background:#334155;color:#fff;font-weight:600}
+.main{flex:1;padding:20px}
+.main h1{font-size:16px;color:#1e293b;margin-bottom:16px}
+.stats{display:flex;gap:12px;margin-bottom:20px}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+thead tr{background:#f1f5f9}
+thead th{padding:8px 10px;text-align:left;font-size:11px;color:#64748b;font-weight:600;border-bottom:1px solid #e2e8f0}
+tbody td{padding:6px 10px;font-size:12px;color:#334155;border-bottom:1px solid #f1f5f9}
+</style></head><body>
+<div class="sidebar">
+  <h2>DLP Policies</h2>
+  <div class="item active">All Alerts</div>
+  <div class="item">PCI-DSS Rules</div>
+  <div class="item">PII Protection</div>
+  <div class="item">Source Code</div>
+  <div class="item">Confidential</div>
+  <div class="item">Large Transfers</div>
+</div>
+<div class="main">
+  <h1>&#128274; ${esc(title)}</h1>
+  <div class="stats">${stats}</div>
+  <table>
+    <thead><tr><th>Timestamp</th><th>Rule</th><th>Action</th><th>Volume</th><th>Account</th><th>Result</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</div>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Reverse Engineering — IDA Pro / Ghidra Disassembly
+// ---------------------------------------------------------------------------
+
+function renderReverseEngineering(title: string, content: string): string {
+  const sections = parseSections(content);
+
+  const defaultSections = [
+    [
+      'sub_401000  main',
+      'sub_401120  decrypt_config',
+      'sub_4012A0  http_beacon',
+      'sub_401400  exfil_data',
+      'sub_401580  anti_debug',
+    ],
+    [
+      '0x00401120  55              push    ebp                  ; Function prologue',
+      '0x00401121  89E5            mov     ebp, esp',
+      '0x00401123  83EC20          sub     esp, 0x20            ; Allocate local vars',
+      '0x00401126  C745FC00000000  mov     dword [ebp-4], 0     ; Initialize counter',
+      '0x0040112D  8B4508          mov     eax, [ebp+8]         ; Load config ptr',
+      '0x00401130  8945F8          mov     [ebp-8], eax',
+      '0x00401133  EB1A            jmp     0x40114F             ; Jump to decrypt loop',
+      '0x00401135  8B45F8          mov     eax, [ebp-8]',
+      '0x00401138  0345FC          add     eax, [ebp-4]',
+      '0x0040113B  0FB600          movzx   eax, byte [eax]      ; Read encrypted byte',
+      '0x0040113E  3455            xor     al, 0x55             ; XOR decrypt key=0x55',
+    ],
+    [
+      'String: "http://203.0.113.42/beacon"  @ 0x00405010',
+      'String: "Mozilla/5.0 (compatible)"    @ 0x00405040',
+      'String: "config.encrypted"            @ 0x00405080',
+      'Import: kernel32.VirtualAlloc         @ 0x00406000',
+      'Import: ws2_32.connect               @ 0x00406008',
+      'Import: wininet.HttpSendRequestA     @ 0x00406010',
+    ],
+  ];
+
+  const dataSections = sections.length > 0 && sections[0].length > 0 ? sections : defaultSections;
+
+  const funcList = (dataSections[0] ?? []).slice(0, 20);
+  const disasmLines = (dataSections[1] ?? []).slice(0, 20);
+  const stringsLines = (dataSections[2] ?? []).slice(0, 20);
+
+  const funcHtml = funcList.map((l, i) => {
+    const parts = l.trim().split(/\s+/);
+    const addr = parts[0] ?? '';
+    const name = parts.slice(1).join(' ') || addr;
+    const active = i === 1;
+    return `<div style="padding:3px 8px;font-size:11px;cursor:pointer;${active ? 'background:#264f78;color:#fff' : 'color:#d4d4d4'}">${esc(addr)} <span style="color:#dcdcaa">${esc(name)}</span></div>`;
+  }).join('');
+
+  const disasmHtml = disasmLines.map((l) => {
+    // Parse: 0xADDRESS  bytes  mnemonic  operands  ; comment
+    const commentIdx = l.indexOf(';');
+    const comment = commentIdx >= 0 ? l.slice(commentIdx) : '';
+    const mainPart = commentIdx >= 0 ? l.slice(0, commentIdx) : l;
+    const parts = mainPart.trim().split(/\s{2,}/);
+    const addr = parts[0] ?? '';
+    const bytes = parts[1] ?? '';
+    const rest = parts.slice(2).join('  ');
+    const mnMatch = rest.match(/^(\S+)\s*(.*)/);
+    const mnemonic = mnMatch?.[1] ?? rest;
+    const operands = mnMatch?.[2] ?? '';
+
+    return `<div style="display:flex;gap:0;font-size:12px;line-height:1.6">
+      <span style="color:#569cd6;min-width:100px;display:inline-block">${esc(addr)}</span>
+      <span style="color:#666;min-width:120px;display:inline-block">${esc(bytes)}</span>
+      <span style="color:#dcdcaa;min-width:70px;display:inline-block">${esc(mnemonic)}</span>
+      <span style="color:#9cdcfe;flex:1">${esc(operands)}</span>
+      ${comment ? `<span style="color:#6a9955;margin-left:8px">${esc(comment)}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  const stringsHtml = stringsLines.map(l => `<div style="font-size:11px;color:#ce9178;line-height:1.6">${esc(l)}</div>`).join('');
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#2b2b2b;color:#d4d4d4;font-family:'Courier New',monospace;font-size:12px;display:grid;grid-template-columns:180px 1fr;grid-template-rows:auto 1fr auto;height:600px}
+.toolbar{grid-column:1/-1;background:#333;padding:6px 12px;display:flex;gap:12px;align-items:center;border-bottom:1px solid #555;font-size:12px}
+.toolbar .title{color:#dcdcaa;font-weight:700}
+.toolbar .btn{color:#888;font-size:11px}
+.func-list{background:#252526;border-right:1px solid #444;overflow-y:auto;padding:4px 0}
+.func-list h3{font-size:11px;color:#888;padding:6px 8px;border-bottom:1px solid #333}
+.disasm{overflow:auto;padding:8px 12px;background:#1e1e1e}
+.strings{grid-column:1/-1;border-top:1px solid #444;background:#252526;padding:8px 12px;max-height:150px;overflow-y:auto}
+.strings h3{font-size:11px;color:#888;margin-bottom:6px}
+</style></head><body>
+<div class="toolbar">
+  <span class="title">IDA Pro &mdash; ${esc(title)}</span>
+  <span class="btn">File</span><span class="btn">Edit</span><span class="btn">View</span>
+  <span class="btn">Debug</span><span class="btn">Options</span>
+</div>
+<div class="func-list">
+  <h3>Functions</h3>
+  ${funcHtml}
+</div>
+<div class="disasm">
+${disasmHtml}
+</div>
+<div class="strings">
+  <h3>Strings / Imports</h3>
+  ${stringsHtml}
+</div>
+</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Certificate Viewer — X.509 Certificate Details
+// ---------------------------------------------------------------------------
+
+function renderCertificateViewer(title: string, content: string): string {
+  const lines = splitLines(content);
+
+  const defaultLines = [
+    'Subject: CN=update-service.example.com, O=Example Corp, C=US',
+    'Issuer: CN=DigiCert SHA2 Extended Validation Server CA, O=DigiCert Inc, C=US',
+    'Serial Number: 0A:1B:2C:3D:4E:5F:6A:7B',
+    'Valid From: 2025-12-01 00:00:00 UTC',
+    'Valid To: 2026-12-01 23:59:59 UTC',
+    'Signature Algorithm: SHA256withRSA',
+    'Key Size: 2048 bit',
+    'Key Usage: Digital Signature, Key Encipherment',
+    'Extended Key Usage: Server Authentication',
+    'Subject Alternative Names: update-service.example.com, *.example.com',
+    'Fingerprint (SHA-256): AB:CD:EF:12:34:56:78:9A:BC:DE:F0:12:34:56:78:9A:AB:CD:EF:12:34:56:78:9A:BC:DE:F0:12:34:56:78:9A',
+    'Status: Valid',
+    'CHAIN:update-service.example.com (Leaf)',
+    'CHAIN:DigiCert SHA2 Extended Validation Server CA (Intermediate)',
+    'CHAIN:DigiCert Root CA (Root - Trusted)',
+  ];
+
+  const dataLines = lines.length > 0 ? lines : defaultLines;
+
+  const fieldLines = dataLines.filter(l => !l.startsWith('CHAIN:'));
+  const chainLines = dataLines.filter(l => l.startsWith('CHAIN:')).map(l => l.slice(6).trim());
+
+  const statusLine = fieldLines.find(l => l.toLowerCase().startsWith('status'))?.split(':').slice(1).join(':').trim() ?? '';
+  const isValid = statusLine.toLowerCase().includes('valid') && !statusLine.toLowerCase().includes('invalid') && !statusLine.toLowerCase().includes('expired');
+
+  const fieldHtml = fieldLines.map((l) => {
+    const idx = l.indexOf(':');
+    if (idx < 0) return '';
+    const label = l.slice(0, idx).trim();
+    const value = l.slice(idx + 1).trim();
+    let valueStyle = 'color:#111';
+    if (label.toLowerCase() === 'status') {
+      valueStyle = isValid ? 'color:#107c10;font-weight:600' : 'color:#e81123;font-weight:600';
+    }
+    return `<div style="display:flex;gap:12px;padding:5px 0;border-bottom:1px solid #f0f0f0">
+      <div style="min-width:200px;text-align:right;color:#6b7280;font-size:12px;flex-shrink:0">${esc(label)}</div>
+      <div style="${valueStyle};font-size:12px;word-break:break-all">${label.toLowerCase() === 'status' ? (isValid ? '&#10003; ' : '&#10007; ') : ''}${esc(value)}</div>
+    </div>`;
+  }).join('');
+
+  const chainHtml = chainLines.length > 0
+    ? chainLines.map((c, i) => `<div style="display:flex;align-items:center;padding:6px 0 6px ${i * 24}px;${i > 0 ? 'border-left:2px solid #3b82f6;margin-left:' + ((i - 1) * 24 + 11) + 'px' : ''}">
+        <span style="color:#3b82f6;margin-right:8px;font-size:14px">&#9679;</span>
+        <span style="font-size:12px;color:#333">${esc(c)}</span>
+      </div>`).join('')
+    : '';
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#f8f8f8;font-family:'Segoe UI',sans-serif;font-size:13px;padding:24px}
+.card{background:#fff;max-width:700px;margin:0 auto;border:1px solid #ddd;border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.card-header{padding:16px 20px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:12px}
+.lock{font-size:28px}
+.card-header h1{font-size:16px;color:#111;font-weight:600}
+.card-header .status{font-size:12px;margin-top:2px}
+.fields{padding:16px 20px}
+.chain-section{padding:16px 20px;border-top:1px solid #eee}
+.chain-section h3{font-size:13px;color:#333;margin-bottom:10px}
+</style></head><body>
+<div class="card">
+  <div class="card-header">
+    <div class="lock">${isValid ? '&#128274;' : '&#128275;'}</div>
+    <div>
+      <h1>${esc(title)}</h1>
+      <div class="status" style="color:${isValid ? '#107c10' : '#e81123'}">${isValid ? '&#10003; Certificate Valid' : '&#10007; Certificate Invalid / Expired'}</div>
+    </div>
+  </div>
+  <div class="fields">${fieldHtml}</div>
+  ${chainHtml ? `<div class="chain-section"><h3>Certificate Chain</h3>${chainHtml}</div>` : ''}
+</div>
+</body></html>`;
+}
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -550,6 +1539,18 @@ export function htmlArtifactForSubtype(
     case 'network_capture':    return renderNetworkCapture(title, content);
     case 'dark_web_listing':   return renderDarkWebListing(title, content);
     case 'scada_interface':    return renderScadaInterface(title, content);
+    case 'browser_popup':      return renderBrowserPopup(title, content);
+    case 'azure_ad_signin':      return renderAzureAdSignin(title, content);
+    case 'vpn_gateway_log':      return renderVpnGatewayLog(title, content);
+    case 'windows_event_log':    return renderWindowsEventLog(title, content);
+    case 'edr_process_tree':     return renderEdrProcessTree(title, content);
+    case 'memory_forensics':     return renderMemoryForensics(title, content);
+    case 'itsm_ticket':          return renderItsmTicket(title, content);
+    case 'threat_intel_report':  return renderThreatIntelReport(title, content);
+    case 'ti_enrichment':        return renderTiEnrichment(title, content);
+    case 'dlp_dashboard':        return renderDlpDashboard(title, content);
+    case 'reverse_engineering':  return renderReverseEngineering(title, content);
+    case 'certificate_viewer':   return renderCertificateViewer(title, content);
     default:                   return null;
   }
 }

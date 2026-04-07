@@ -146,11 +146,24 @@ export const ImageSubtypeSchema = z.enum([
   'phishing_email',
   'fraudulent_invoice',
   'usb_device',
-  // Evidence
+  'browser_popup',       // fake update/installer browser popup
+  // Evidence (existing)
   'scada_interface',
   'network_capture',
   'dark_web_listing',
   'network_diagram',
+  // Evidence (UI templates)
+  'azure_ad_signin',
+  'vpn_gateway_log',
+  'windows_event_log',
+  'edr_process_tree',
+  'memory_forensics',
+  'itsm_ticket',
+  'threat_intel_report',
+  'ti_enrichment',
+  'dlp_dashboard',
+  'reverse_engineering',
+  'certificate_viewer',
   // Atmosphere
   'period_photograph',
   'portrait',
