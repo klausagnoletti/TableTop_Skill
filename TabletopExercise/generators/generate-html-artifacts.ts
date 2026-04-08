@@ -639,7 +639,7 @@ function renderAzureAdSignin(title: string, content: string): string {
   const rows = dataLines.slice(0, 20).map((line, i) => {
     const f = pipeFields(line);
     const risk = f[5] ?? 'None';
-    const bg = i % 2 === 0 ? '#1e1e1e' : '#252526';
+    const bg = i % 2 === 0 ? '#fff' : '#f5f5f5';
     return `<tr style="background:${bg}">
       <td>${esc(f[0] ?? '')}</td><td>${esc(f[1] ?? '')}</td><td>${esc(f[2] ?? '')}</td>
       <td>${esc(f[3] ?? '')}</td><td>${esc(f[4] ?? '')}</td>
@@ -651,15 +651,15 @@ function renderAzureAdSignin(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#1b1b1f;color:#d4d4d4;font-family:'Segoe UI',sans-serif;font-size:13px}
-.breadcrumb{background:#252526;padding:10px 20px;font-size:12px;color:#9ca3af;border-bottom:1px solid #333}
+body{background:#fff;color:#111;font-family:'Segoe UI',sans-serif;font-size:13px;border:1px solid #ddd}
+.breadcrumb{background:#f5f5f5;padding:10px 20px;font-size:12px;color:#555;border-bottom:1px solid #ddd}
 .breadcrumb span{color:#0078d4}
-.filter-bar{background:#1e1e1e;padding:8px 20px;display:flex;gap:12px;align-items:center;border-bottom:1px solid #333;font-size:12px;color:#888}
-.filter-bar .pill{background:#333;padding:3px 10px;border-radius:12px;font-size:11px;color:#ccc}
+.filter-bar{background:#fafafa;padding:8px 20px;display:flex;gap:12px;align-items:center;border-bottom:1px solid #ddd;font-size:12px;color:#555}
+.filter-bar .pill{background:#eee;padding:3px 10px;border-radius:12px;font-size:11px;color:#333}
 table{width:100%;border-collapse:collapse}
-thead tr{background:#252526}
-thead th{padding:8px 10px;text-align:left;font-size:11px;color:#9ca3af;font-weight:600;border-bottom:1px solid #444}
-tbody td{padding:6px 10px;font-size:12px;color:#d4d4d4;border-bottom:1px solid #333}
+thead tr{background:#f5f5f5}
+thead th{padding:8px 10px;text-align:left;font-size:11px;color:#222;font-weight:600;border-bottom:1px solid #ddd}
+tbody td{padding:6px 10px;font-size:12px;color:#111;border-bottom:1px solid #ddd}
 .title-bar{background:#0078d4;padding:12px 20px;color:#fff;font-weight:600;font-size:15px}
 </style></head><body>
 <div class="title-bar">${esc(title)}</div>
@@ -702,7 +702,7 @@ function renderVpnGatewayLog(title: string, content: string): string {
     const status = (f[5] ?? '').trim().toLowerCase();
     const statusDot = status === 'connected' ? '#22c55e' : '#666';
     const rowBg = isNtlm ? 'rgba(210,153,34,0.12)' : 'transparent';
-    const authColor = isNtlm ? '#d29922' : '#58a6ff';
+    const authColor = isNtlm ? '#d29922' : '#0066cc';
     return `<tr style="background:${rowBg}">
       <td>${esc(f[0] ?? '')}</td><td>${esc(f[1] ?? '')}</td><td>${esc(f[2] ?? '')}</td>
       <td style="color:${authColor};font-weight:600">${esc(authType)}</td>
@@ -714,14 +714,14 @@ function renderVpnGatewayLog(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0d1117;color:#c9d1d9;font-family:'Courier New',monospace;font-size:12px}
-.header{background:#161b22;padding:12px 20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center}
-.header h1{font-size:14px;color:#58a6ff;font-weight:700}
-.header .gw{font-size:11px;color:#8b949e}
+body{background:#fff;color:#111;font-family:'Courier New',monospace;font-size:12px;border:1px solid #ddd}
+.header{background:#f5f5f5;padding:12px 20px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:14px;color:#0066cc;font-weight:700}
+.header .gw{font-size:11px;color:#555}
 table{width:100%;border-collapse:collapse}
-thead tr{background:#161b22}
-thead th{padding:8px 10px;text-align:left;font-size:11px;color:#8b949e;font-weight:600;border-bottom:1px solid #30363d}
-tbody td{padding:6px 10px;font-size:12px;border-bottom:1px solid #21262d}
+thead tr{background:#f5f5f5}
+thead th{padding:8px 10px;text-align:left;font-size:11px;color:#222;font-weight:600;border-bottom:1px solid #ddd}
+tbody td{padding:6px 10px;font-size:12px;color:#111;border-bottom:1px solid #eee}
 </style></head><body>
 <div class="header">
   <h1>VPN Gateway Console &mdash; ${esc(title)}</h1>
@@ -784,7 +784,7 @@ function renderWindowsEventLog(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',sans-serif;font-size:12px;background:#fff;display:flex;flex-direction:column;height:600px}
+body{font-family:'Segoe UI',sans-serif;font-size:12px;background:#fff;display:flex;flex-direction:column;height:600px;border:1px solid #ddd}
 .titlebar{background:#f0f0f0;padding:6px 12px;font-size:13px;font-weight:600;color:#1e1e1e;border-bottom:1px solid #ccc;display:flex;align-items:center;gap:8px}
 .content{display:flex;flex:1;overflow:hidden}
 .tree{width:160px;background:#f5f5f5;border-right:1px solid #ddd;padding:8px 0;font-size:12px;flex-shrink:0;overflow-y:auto}
@@ -869,10 +869,10 @@ function renderEdrProcessTree(title: string, content: string): string {
     const procName = esc(parts[0]?.replace(/\(PID\s*\d+\)/, '').trim() ?? '');
     const cmdLine = esc(parts[1]?.trim() ?? '');
 
-    return `<div style="padding:4px 0 4px ${depth * 24}px;border-left:${depth > 0 ? '2px solid #334155' : 'none'};margin-left:${depth > 0 ? (depth - 1) * 24 + 11 : 0}px;font-family:'Courier New',monospace;font-size:12px">
-      <span style="color:#e2e8f0;font-weight:600">${procName}</span>
-      ${pid ? `<span style="color:#64748b;font-size:11px;margin-left:6px">(PID ${esc(pid)})</span>` : ''}
-      ${cmdLine ? `<span style="color:#94a3b8;font-size:11px;margin-left:8px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom">${cmdLine}</span>` : ''}
+    return `<div style="padding:4px 0 4px ${depth * 24}px;border-left:${depth > 0 ? '2px solid #ddd' : 'none'};margin-left:${depth > 0 ? (depth - 1) * 24 + 11 : 0}px;font-family:'Courier New',monospace;font-size:12px">
+      <span style="color:#111;font-weight:600">${procName}</span>
+      ${pid ? `<span style="color:#555;font-size:11px;margin-left:6px">(PID ${esc(pid)})</span>` : ''}
+      ${cmdLine ? `<span style="color:#555;font-size:11px;margin-left:8px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom">${cmdLine}</span>` : ''}
       ${badge ? `<span style="background:${badgeBg};color:#fff;padding:1px 8px;border-radius:3px;font-size:10px;font-weight:700;margin-left:8px">${badge}</span>` : ''}
     </div>`;
   });
@@ -880,15 +880,15 @@ function renderEdrProcessTree(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0b1120;color:#e2e8f0;font-family:'Segoe UI',sans-serif;font-size:13px}
-.header{background:#111827;padding:12px 20px;border-bottom:2px solid #ff4d4f;display:flex;justify-content:space-between;align-items:center}
-.header h1{font-size:14px;color:#ff4d4f;font-weight:700}
-.header .sub{font-size:11px;color:#64748b}
-.breadcrumb{background:#0f172a;padding:8px 20px;font-size:12px;color:#64748b;border-bottom:1px solid #1e293b}
-.breadcrumb span{color:#ff4d4f}
+body{background:#fff;color:#111;font-family:'Segoe UI',sans-serif;font-size:13px;border:1px solid #ddd}
+.header{background:#f5f5f5;padding:12px 20px;border-bottom:2px solid #cc0000;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:14px;color:#cc0000;font-weight:700}
+.header .sub{font-size:11px;color:#555}
+.breadcrumb{background:#fafafa;padding:8px 20px;font-size:12px;color:#555;border-bottom:1px solid #ddd}
+.breadcrumb span{color:#cc0000}
 .tree{padding:16px 20px}
-.meta{padding:12px 20px;background:#0f172a;border-bottom:1px solid #1e293b;font-size:11px;color:#64748b;display:flex;gap:24px}
-.meta .label{color:#94a3b8}
+.meta{padding:12px 20px;background:#fafafa;border-bottom:1px solid #ddd;font-size:11px;color:#555;display:flex;gap:24px}
+.meta .label{color:#555}
 </style></head><body>
 <div class="header">
   <h1>&#9872; CrowdStrike Falcon</h1>
@@ -898,7 +898,7 @@ body{background:#0b1120;color:#e2e8f0;font-family:'Segoe UI',sans-serif;font-siz
 <div class="meta">
   <div><span class="label">Host:</span> WS-PC0142</div>
   <div><span class="label">Detection:</span> ${esc(title)}</div>
-  <div><span class="label">Severity:</span> <span style="color:#ff4d4f">Critical</span></div>
+  <div><span class="label">Severity:</span> <span style="color:#cc0000">Critical</span></div>
   <div><span class="label">Time:</span> 2026-04-07 08:15:33 UTC</div>
 </div>
 <div class="tree">
@@ -941,18 +941,18 @@ function renderMemoryForensics(title: string, content: string): string {
     const cmd = sec[0];
     const output = sec.slice(1);
     return `<div style="margin-bottom:20px">
-      <div style="color:#00ff41;font-weight:700;margin-bottom:4px">$ ${esc(cmd)}</div>
-      ${output.map(l => `<div style="color:#d4d4d4">${esc(l)}</div>`).join('\n')}
+      <div style="color:#006600;font-weight:700;margin-bottom:4px">$ ${esc(cmd)}</div>
+      ${output.map(l => `<div style="color:#111">${esc(l)}</div>`).join('\n')}
     </div>`;
   }).join('');
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a0a;color:#00ff41;font-family:'Courier New',monospace;font-size:12px;padding:16px;min-height:600px}
-.title{color:#00ff41;font-size:14px;font-weight:700;margin-bottom:4px}
-.subtitle{color:#666;font-size:11px;margin-bottom:16px}
-.prompt{color:#888;margin-bottom:16px;font-size:11px}
+body{background:#fff;color:#006600;font-family:'Courier New',monospace;font-size:12px;padding:16px;min-height:600px;border:1px solid #ddd}
+.title{color:#006600;font-size:14px;font-weight:700;margin-bottom:4px}
+.subtitle{color:#555;font-size:11px;margin-bottom:16px}
+.prompt{color:#555;margin-bottom:16px;font-size:11px}
 .output{white-space:pre;line-height:1.5;font-size:12px}
 </style></head><body>
 <div class="title">Volatility 3 Framework &mdash; ${esc(title)}</div>
@@ -1021,7 +1021,7 @@ function renderItsmTicket(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#f5f5f5;font-family:'Segoe UI',sans-serif;font-size:13px;color:#333}
+body{background:#f5f5f5;font-family:'Segoe UI',sans-serif;font-size:13px;color:#333;border:1px solid #ddd}
 .header{background:#293e40;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
 .header h1{font-size:15px;color:#fff;font-weight:600}
 .header .badge{padding:3px 12px;border-radius:3px;font-size:12px;font-weight:700;color:#fff}
@@ -1114,7 +1114,7 @@ function renderThreatIntelReport(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#fff;font-family:Georgia,'Times New Roman',serif;font-size:13px;color:#333}
+body{background:#fff;font-family:Georgia,'Times New Roman',serif;font-size:13px;color:#333;border:1px solid #ddd}
 .tlp-banner{padding:10px 20px;text-align:center;font-weight:700;font-size:14px;letter-spacing:2px}
 .title-section{padding:20px 40px;border-bottom:1px solid #ddd}
 .title-section h1{font-size:20px;color:#1a1a1a;margin-bottom:8px}
@@ -1181,7 +1181,7 @@ function renderTiEnrichment(title: string, content: string): string {
   const headerKV = headerFields.map((l) => {
     const idx = l.indexOf(':');
     if (idx < 0) return '';
-    return `<div style="margin-bottom:4px"><span style="color:#8b949e;font-size:11px">${esc(l.slice(0, idx).trim())}:</span> <span style="color:#e2e8f0;font-size:12px">${esc(l.slice(idx + 1).trim())}</span></div>`;
+    return `<div style="margin-bottom:4px"><span style="color:#555;font-size:11px">${esc(l.slice(0, idx).trim())}:</span> <span style="color:#111;font-size:12px">${esc(l.slice(idx + 1).trim())}</span></div>`;
   }).join('');
 
   const panelHtml = dataSections.slice(1).map((sec) => {
@@ -1192,18 +1192,18 @@ function renderTiEnrichment(title: string, content: string): string {
       const headers = pipeFields(sec[1] ?? '');
       const rows = sec.slice(2, 12).map(l => {
         const f = pipeFields(l);
-        return `<tr>${f.map(v => `<td style="padding:4px 8px;border-bottom:1px solid #2d2d5e;font-size:11px;color:#c9d1d9">${esc(v)}</td>`).join('')}</tr>`;
+        return `<tr>${f.map(v => `<td style="padding:4px 8px;border-bottom:1px solid #ddd;font-size:11px;color:#111">${esc(v)}</td>`).join('')}</tr>`;
       }).join('');
-      inner = `<table style="width:100%;border-collapse:collapse"><thead><tr>${headers.map(h => `<th style="padding:4px 8px;text-align:left;font-size:11px;color:#8b949e;border-bottom:1px solid #3d3d6e">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+      inner = `<table style="width:100%;border-collapse:collapse"><thead><tr>${headers.map(h => `<th style="padding:4px 8px;text-align:left;font-size:11px;color:#222;border-bottom:1px solid #ddd">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
     } else {
       inner = sec.slice(1).map(l => {
         const idx = l.indexOf(':');
-        if (idx >= 0) return `<div style="margin-bottom:3px"><span style="color:#8b949e;font-size:11px">${esc(l.slice(0, idx).trim())}:</span> <span style="color:#c9d1d9;font-size:12px">${esc(l.slice(idx + 1).trim())}</span></div>`;
-        return `<div style="color:#c9d1d9;font-size:12px">${esc(l)}</div>`;
+        if (idx >= 0) return `<div style="margin-bottom:3px"><span style="color:#555;font-size:11px">${esc(l.slice(0, idx).trim())}:</span> <span style="color:#111;font-size:12px">${esc(l.slice(idx + 1).trim())}</span></div>`;
+        return `<div style="color:#111;font-size:12px">${esc(l)}</div>`;
       }).join('');
     }
-    return `<div style="background:#16213e;border:1px solid #2d2d5e;border-radius:6px;padding:12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:600;color:#a78bfa;margin-bottom:8px;border-bottom:1px solid #2d2d5e;padding-bottom:6px">${esc(panelTitle)}</div>
+    return `<div style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:600;color:#6a3dbd;margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:6px">${esc(panelTitle)}</div>
       ${inner}
     </div>`;
   }).join('');
@@ -1211,19 +1211,19 @@ function renderTiEnrichment(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#1a1a2e;color:#c9d1d9;font-family:'Segoe UI',sans-serif;font-size:13px}
-.header{background:#16213e;padding:16px 20px;border-bottom:1px solid #2d2d5e;display:flex;align-items:center;gap:20px}
+body{background:#fff;color:#111;font-family:'Segoe UI',sans-serif;font-size:13px;border:1px solid #ddd}
+.header{background:#f5f5f5;padding:16px 20px;border-bottom:1px solid #ddd;display:flex;align-items:center;gap:20px}
 .score-circle{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;flex-shrink:0}
 .header-info{flex:1}
-.tabs{background:#0f172a;padding:0 20px;display:flex;gap:0;border-bottom:1px solid #2d2d5e}
-.tab{padding:10px 16px;font-size:12px;color:#8b949e;cursor:pointer}
-.tab.active{color:#a78bfa;border-bottom:2px solid #a78bfa}
+.tabs{background:#fafafa;padding:0 20px;display:flex;gap:0;border-bottom:1px solid #ddd}
+.tab{padding:10px 16px;font-size:12px;color:#555;cursor:pointer}
+.tab.active{color:#6a3dbd;border-bottom:2px solid #6a3dbd}
 .panels{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
 </style></head><body>
 <div class="header">
   <div class="score-circle" style="background:${scoreColor}">${score}</div>
   <div class="header-info">
-    <div style="font-size:16px;font-weight:700;color:#e2e8f0;margin-bottom:4px">${esc(indicator)}</div>
+    <div style="font-size:16px;font-weight:700;color:#111;margin-bottom:4px">${esc(indicator)}</div>
     <span style="background:${scoreColor};color:#fff;padding:2px 10px;border-radius:3px;font-size:11px;font-weight:600">${esc(verdict)}</span>
     <div style="margin-top:8px">${headerKV}</div>
   </div>
@@ -1295,18 +1295,18 @@ function renderDlpDashboard(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#f8fafc;font-family:'Segoe UI',sans-serif;font-size:13px;display:flex;min-height:600px}
-.sidebar{width:200px;background:#1e293b;padding:16px 0;flex-shrink:0}
-.sidebar h2{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:0 16px;margin-bottom:12px}
-.sidebar .item{padding:8px 16px;color:#cbd5e1;font-size:12px;cursor:pointer}
-.sidebar .item.active{background:#334155;color:#fff;font-weight:600}
+body{background:#f8fafc;font-family:'Segoe UI',sans-serif;font-size:13px;display:flex;min-height:600px;border:1px solid #ddd}
+.sidebar{width:200px;background:#f0f0f0;padding:16px 0;flex-shrink:0;border-right:1px solid #ddd}
+.sidebar h2{color:#555;font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:0 16px;margin-bottom:12px}
+.sidebar .item{padding:8px 16px;color:#555;font-size:12px;cursor:pointer}
+.sidebar .item.active{background:#ddd;color:#111;font-weight:600}
 .main{flex:1;padding:20px}
 .main h1{font-size:16px;color:#1e293b;margin-bottom:16px}
 .stats{display:flex;gap:12px;margin-bottom:20px}
 table{width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 thead tr{background:#f1f5f9}
-thead th{padding:8px 10px;text-align:left;font-size:11px;color:#64748b;font-weight:600;border-bottom:1px solid #e2e8f0}
-tbody td{padding:6px 10px;font-size:12px;color:#334155;border-bottom:1px solid #f1f5f9}
+thead th{padding:8px 10px;text-align:left;font-size:11px;color:#222;font-weight:600;border-bottom:1px solid #ddd}
+tbody td{padding:6px 10px;font-size:12px;color:#111;border-bottom:1px solid #f1f5f9}
 </style></head><body>
 <div class="sidebar">
   <h2>DLP Policies</h2>
@@ -1377,7 +1377,7 @@ function renderReverseEngineering(title: string, content: string): string {
     const addr = parts[0] ?? '';
     const name = parts.slice(1).join(' ') || addr;
     const active = i === 1;
-    return `<div style="padding:3px 8px;font-size:11px;cursor:pointer;${active ? 'background:#264f78;color:#fff' : 'color:#d4d4d4'}">${esc(addr)} <span style="color:#dcdcaa">${esc(name)}</span></div>`;
+    return `<div style="padding:3px 8px;font-size:11px;cursor:pointer;${active ? 'background:#cde;color:#111' : 'color:#111'}">${esc(addr)} <span style="color:#7a6b2a">${esc(name)}</span></div>`;
   }).join('');
 
   const disasmHtml = disasmLines.map((l) => {
@@ -1394,28 +1394,28 @@ function renderReverseEngineering(title: string, content: string): string {
     const operands = mnMatch?.[2] ?? '';
 
     return `<div style="display:flex;gap:0;font-size:12px;line-height:1.6">
-      <span style="color:#569cd6;min-width:100px;display:inline-block">${esc(addr)}</span>
-      <span style="color:#666;min-width:120px;display:inline-block">${esc(bytes)}</span>
-      <span style="color:#dcdcaa;min-width:70px;display:inline-block">${esc(mnemonic)}</span>
-      <span style="color:#9cdcfe;flex:1">${esc(operands)}</span>
-      ${comment ? `<span style="color:#6a9955;margin-left:8px">${esc(comment)}</span>` : ''}
+      <span style="color:#0066cc;min-width:100px;display:inline-block">${esc(addr)}</span>
+      <span style="color:#888;min-width:120px;display:inline-block">${esc(bytes)}</span>
+      <span style="color:#7a6b2a;min-width:70px;display:inline-block">${esc(mnemonic)}</span>
+      <span style="color:#111;flex:1">${esc(operands)}</span>
+      ${comment ? `<span style="color:#4a7a4a;margin-left:8px">${esc(comment)}</span>` : ''}
     </div>`;
   }).join('');
 
-  const stringsHtml = stringsLines.map(l => `<div style="font-size:11px;color:#ce9178;line-height:1.6">${esc(l)}</div>`).join('');
+  const stringsHtml = stringsLines.map(l => `<div style="font-size:11px;color:#a05a2c;line-height:1.6">${esc(l)}</div>`).join('');
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#2b2b2b;color:#d4d4d4;font-family:'Courier New',monospace;font-size:12px;display:grid;grid-template-columns:180px 1fr;grid-template-rows:auto 1fr auto;height:600px}
-.toolbar{grid-column:1/-1;background:#333;padding:6px 12px;display:flex;gap:12px;align-items:center;border-bottom:1px solid #555;font-size:12px}
-.toolbar .title{color:#dcdcaa;font-weight:700}
-.toolbar .btn{color:#888;font-size:11px}
-.func-list{background:#252526;border-right:1px solid #444;overflow-y:auto;padding:4px 0}
-.func-list h3{font-size:11px;color:#888;padding:6px 8px;border-bottom:1px solid #333}
-.disasm{overflow:auto;padding:8px 12px;background:#1e1e1e}
-.strings{grid-column:1/-1;border-top:1px solid #444;background:#252526;padding:8px 12px;max-height:150px;overflow-y:auto}
-.strings h3{font-size:11px;color:#888;margin-bottom:6px}
+body{background:#fff;color:#111;font-family:'Courier New',monospace;font-size:12px;display:grid;grid-template-columns:180px 1fr;grid-template-rows:auto 1fr auto;height:600px;border:1px solid #ddd}
+.toolbar{grid-column:1/-1;background:#f5f5f5;padding:6px 12px;display:flex;gap:12px;align-items:center;border-bottom:1px solid #ddd;font-size:12px}
+.toolbar .title{color:#7a6b2a;font-weight:700}
+.toolbar .btn{color:#555;font-size:11px}
+.func-list{background:#f5f5f5;border-right:1px solid #ddd;overflow-y:auto;padding:4px 0}
+.func-list h3{font-size:11px;color:#555;padding:6px 8px;border-bottom:1px solid #ddd}
+.disasm{overflow:auto;padding:8px 12px;background:#fafafa}
+.strings{grid-column:1/-1;border-top:1px solid #ddd;background:#f5f5f5;padding:8px 12px;max-height:150px;overflow-y:auto}
+.strings h3{font-size:11px;color:#555;margin-bottom:6px}
 </style></head><body>
 <div class="toolbar">
   <span class="title">IDA Pro &mdash; ${esc(title)}</span>
