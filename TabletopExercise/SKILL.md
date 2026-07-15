@@ -1,6 +1,6 @@
 ---
 name: TabletopExercise
-description: Comprehensive cybersecurity tabletop exercise design and facilitation framework. USE WHEN designing incident response scenarios, creating executive or technical tabletops, generating atomics for exercise runners, identifying missing SOPs/playbooks, or evaluating organizational preparedness. Includes threat model integration, CISA-aligned methodologies, and automated gap analysis.
+description: Comprehensive cybersecurity tabletop exercise design and facilitation framework, anchored to European practice (ENISA exercise methodology, NIS2, ISO/IEC 27035, DORA for financial entities). USE WHEN designing incident response scenarios, creating executive or technical tabletops, generating atomics for exercise runners, identifying missing SOPs/playbooks, or evaluating organizational preparedness. Includes threat model integration, the M&M guide-not-judge debrief method, and automated gap analysis.
 ---
 
 # TabletopExercise Skill
@@ -17,12 +17,12 @@ When you complete a tabletop exercise, generate these three outputs:
 
 ### Generator Location
 ```
-~/.openclaw/workspace/skills/TabletopExercise/generators/
+~/.claude/skills/TabletopExercise/generators/
 ```
 
 Run with:
 ```bash
-cd ~/.openclaw/workspace/skills/TabletopExercise/generators
+cd ~/.claude/skills/TabletopExercise/generators
 bun run generate-html.ts --input ../examples/[slug]/exercise-data.json --output ../examples/[slug]/
 ```
 
@@ -52,7 +52,7 @@ TabletopExercise/
 
 ### Prerequisites
 ```bash
-cd ~/.openclaw/workspace/skills/TabletopExercise/generators
+cd ~/.claude/skills/TabletopExercise/generators
 bun install
 ```
 
@@ -376,12 +376,22 @@ Scenarios built from real-world threat models:
 - IoT device exploitation
 - AI/ML workload threats
 
-### 5. CISA-Aligned Framework
-Follows CISA Cybersecurity Tabletop Exercise Package (CTEP) methodology:
-- 100+ pre-built scenario templates
-- Facilitator guides and inject cards
-- After-Action Report templates
-- Objective-based performance analysis
+### 5. European-Anchored Framework
+Anchored to European standards and guidance, cited in this order:
+- **ENISA exercise methodology** (Cyber Europe lineage): scenario design,
+  inject structure, objective-based evaluation
+- **NIS2 Art. 21** (and Art. 23 reporting drills): the exercise EVIDENCES
+  that the organisation exercised its IR plan; never claim it "proves"
+  or "satisfies" compliance
+- **ISO/IEC 27035** (incident management, lessons-learned loop) and
+  **ISO/IEC 27001 A.5.24-27** (control mapping for evidence packs)
+- **DORA Art. 24-25** for financial entities only; a tabletop is
+  explicitly NOT DORA threat-led testing (Art. 26-27)
+
+Historical note: the skill's mechanics originate from the US CISA CTEP /
+FEMA HSEEP tradition (facilitator guides, inject cards, AAR discipline).
+Those mechanics are retained; the US frameworks are optional reference
+material, never the primary citation.
 
 ## Core Framework: Plan → Engage → Learn
 
@@ -398,12 +408,57 @@ Follows CISA Cybersecurity Tabletop Exercise Package (CTEP) methodology:
 4. **Facilitate Discussion**: Open-ended questions, cross-functional coordination
 5. **Document Observations**: Real-time data collection by evaluators
 
-### Learning Phase
-1. **Hot Wash**: 20-30 min immediate debrief
-2. **After-Action Report**: Strengths, gaps, recommendations
-3. **Action Items**: Assigned owners, deadlines, tracking
-4. **Implementation**: Update IR plans, develop missing SOPs, schedule training
-5. **Follow-Up Exercise**: Test improvements in 6-12 months
+### Learning Phase (the M&M debrief method)
+
+The debrief IS the product; protect its time (shorten the last gameplay
+round, never the debrief). The facilitator GUIDES, never judges: no live
+scoring of people, ever. Any scored capability read happens privately
+afterwards, from an observer's notes or a recording (deliverable tier
+T4), never from the facilitator grading the room.
+
+Structure: **reveal -> round-share -> map-to-reality**, run as five
+phases (20-30 min full format; 5-min short format = name the moment,
+name the gap, name the action):
+
+1. **Reveal + Event Recall (5 min)**: reveal what the scenario actually
+   was, then reconstruct the timeline factually. "What happened?", never
+   "what went wrong?". Shared facts before any analysis.
+2. **Round-Share / Role Reflection (5 min)**: structured round-robin,
+   every voice once before anyone speaks twice; each participant speaks
+   from their role's viewpoint. Surfaces feelings before evaluation so
+   they do not block the analytical work.
+3. **Gap Analysis (5-8 min)**: where decisions diverged from the ideal
+   response. Steer to PROCESS gaps ("no clear escalation trigger"), not
+   outcome blame ("should have isolated sooner").
+4. **Map-to-Reality / Transfer (5-7 min)**: bridge every insight to the
+   participants' actual organisation, playbooks, and gaps.
+5. **Written Commitment (5 min)**: each participant writes
+   stop/start/continue plus one implementation intention ("when X, I
+   will Y") with a deadline and an accountability partner. Written,
+   not just spoken.
+
+**Question taxonomy**: distribute 6-8 debrief questions across four
+categories, at least one from each, concrete before abstract:
+- **Operational** (what the team actually did: triage, escalation
+  triggers, channels, role clarity, visibility gaps)
+- **Strategic** (trade-offs: containment vs evidence, when to engage
+  external help, business cost, who outside the room must know)
+- **Cultural/behavioural** (disagreement handling, pressure, tech vs
+  non-tech translation, leadership emergence, information trust)
+- **Learning transfer** ("first thing Monday morning", biggest real
+  gap, what to practise next)
+If the scenario carried a red herring, at least one question must
+address it.
+
+Then the standard follow-through:
+- **After-Action Report**: strengths, gaps, recommendations
+  (four-part findings: Observation, Reference, Analysis,
+  Recommendation); keep game vocabulary OUT of the report
+- **Action Items**: assigned owners, deadlines, tracking
+- **Implementation**: update IR plans, develop missing SOPs, schedule
+  training
+- **Follow-Up Exercise**: test improvements in 6-12 months
+  (ISO/IEC 27035 lessons-learned loop)
 
 ## Scenario Types (Based on Threat Models)
 
@@ -1296,9 +1351,16 @@ Skill Output:
 
 ## Resources
 
+European (primary):
+- **ENISA**: Cyber Europe exercise methodology + sectoral exercise guidance (enisa.europa.eu)
+- **NIS2 Art. 21/23** and **DORA Art. 24-25** (financial entities): the regulatory hooks an exercise evidences
+- **ISO/IEC 27035**: incident management + lessons-learned loop; **ISO/IEC 27001 A.5.24-27**: control mapping for evidence packs
+
+US (optional/historical reference):
 - **CISA CTEPs**: 100+ free scenario templates at cisa.gov/cybersecurity-tabletops
 - **NIST SP 800-84**: Guide to Test, Training, and Exercise Programs
-- **After-Action Report Templates**: CISA and NIST formats included
+
+Other:
 - **Threat Models**: OAuth, Kubernetes, cloud, IoT, AI/ML scenarios
 
 ---
@@ -1403,8 +1465,21 @@ Pass `visual_style` directly to any image tool to override the data-level settin
 
 ---
 
-**Version**: 2.0 (Enhanced from original SOC Manager Table Top Designer)
-**Enhancements**:
+**Version**: 3.3 (Europeanized + M&M debrief method, 15-07-2026;
+version now tracks the README changelog, which was already at v3.2
+while this footer said 2.0 -- that drift is part of what v3.3 fixes)
+**v3.3 changes**:
+- Reanchored to European standards (ENISA methodology, NIS2, ISO/IEC
+  27035 + 27001, DORA scope note); US frameworks demoted to
+  optional/historical reference, mechanics retained
+- Learning Phase replaced with the M&M guide-not-judge debrief method
+  (reveal -> round-share -> map-to-reality, five phases, four-category
+  question taxonomy, written implementation intentions)
+- Fixed stale generator paths (pre-PAI install prefix) to `~/.claude/skills/`
+
+**Earlier versions**: see the README changelog (v3.0-v3.2 added the MCP
+server, Quarto output, AI image generation, HTML artifact templates).
+**v2.0 enhancements** (historical):
 - Added technical atomics generation for exercise runners
 - Integrated SOP/playbook gap analysis framework
 - Incorporated CISA CTEP methodology

@@ -14,7 +14,7 @@ Enhanced from the original SOC Manager Table Top Designer, this framework provid
 - ✅ **Technical Atomics**: Executable inject sequences for realistic scenario delivery
 - ✅ **SOP/Playbook Gap Analysis**: Automated checklist generation for missing procedures
 - ✅ **Threat Model Integration**: Scenarios based on real-world attack patterns
-- ✅ **CISA-Aligned Framework**: Following official Cybersecurity Tabletop Exercise Package (CTEP) methodology
+- ✅ **European-Anchored Framework**: ENISA exercise methodology, NIS2, ISO/IEC 27035 + 27001, DORA scope note; CTEP-lineage mechanics retained as optional reference
 - ✅ **2025-2026 AI Threats**: Deepfake attacks, automated threat chains, supply chain compromise
 - ✅ **PAI Tool Integration**: Caido, Browser MCP, JS Analyzer workflows
 
@@ -384,9 +384,14 @@ Threat Model: OAuth 2.0 RFC 6819
 → Gap Analysis: OAuth security monitoring, token lifecycle management
 ```
 
-### 5. CISA-Aligned Framework
+### 5. European-Anchored Framework
 
-Follows official **CISA Cybersecurity Tabletop Exercise Package (CTEP)** methodology:
+Anchored to **ENISA exercise methodology, NIS2 Art. 21, ISO/IEC 27035 +
+27001 A.5.24-27**, with **DORA Art. 24-25** in scope for financial
+entities only (a tabletop is NOT DORA threat-led testing, Art. 26-27).
+The Plan/Engage/Learn mechanics originate from the US CISA CTEP
+tradition and are retained; US frameworks are optional reference, never
+the primary citation.
 
 **Plan → Engage → Learn**
 
@@ -403,16 +408,21 @@ Follows official **CISA Cybersecurity Tabletop Exercise Package (CTEP)** methodo
 - Facilitate discussion (open-ended questions)
 - Document observations
 
-**Learning Phase:**
-- Hot wash (20-30 min immediate debrief)
-- After-Action Report (strengths, gaps, recommendations)
-- Action items (owners, deadlines, tracking)
-- Implementation (update IR plans, develop SOPs)
-- Follow-up exercise (test improvements in 6-12 months)
+**Learning Phase (M&M guide-not-judge debrief; full method in SKILL.md):**
+- Reveal + event recall, round-share (every voice once before anyone
+  twice), gap analysis (process gaps, not blame), map-to-reality,
+  written commitments (implementation intentions)
+- 6-8 debrief questions across four categories: operational, strategic,
+  cultural/behavioural, learning transfer (at least one from each)
+- Facilitator guides, never scores; capability reads are scored
+  privately from observer notes/recording (deliverable tier T4 only)
+- After-Action Report (strengths, gaps, recommendations; no game
+  vocabulary), action items, implementation, follow-up exercise in
+  6-12 months (ISO/IEC 27035 lessons-learned loop)
 
 **Resources Integrated:**
-- 100+ CISA scenario templates
-- NIST SP 800-84 guidance
+- ENISA exercise methodology + regulatory hooks (NIS2, DORA, ISO 27035/27001)
+- 100+ CISA scenario templates (optional reference)
 - After-Action Report templates
 - Objective-based performance analysis
 
@@ -761,7 +771,12 @@ bun run /root/doctorswzl/src/index.ts malicious-package.js
 
 ## Resources
 
-### Free Government Resources
+### European Standards & Guidance (primary)
+- **ENISA**: Cyber Europe exercise methodology + sectoral guidance (enisa.europa.eu)
+- **NIS2 Art. 21/23**, **DORA Art. 24-25** (financial entities): the regulatory hooks an exercise evidences
+- **ISO/IEC 27035**: incident management; **ISO/IEC 27001 A.5.24-27**: control mapping
+
+### US Resources (optional/historical)
 - **CISA Tabletop Exercise Packages**: cisa.gov/cybersecurity-tabletops (100+ scenarios)
 - **NIST SP 800-84**: Guide to Test, Training, and Exercise Programs
 - **CISA AAR Templates**: After-Action Report formats
@@ -775,15 +790,30 @@ bun run /root/doctorswzl/src/index.ts malicious-package.js
 
 ### Research Foundation
 Skill enhanced with learnings from:
-- CISA Cybersecurity Tabletop Exercise framework
-- NIST 800-84 testing methodologies
+- ENISA exercise methodology and the European regulatory drivers (NIS2, DORA)
+- The M&M/HackBack guide-not-judge debrief method and its learning-science base (Kolb, Gibbs, AAR research)
+- CISA Cybersecurity Tabletop Exercise framework and NIST 800-84 (historical lineage)
 - Real-world practitioner experiences (Memorial Health Systems ransomware response)
 - 2025-2026 emerging threat landscape (AI-powered attacks, supply chain focus)
-- Regulatory drivers (HIPAA, NIS2, DORA, PCI DSS)
+- Other regulatory drivers where clients need them (HIPAA, PCI DSS)
 
 ---
 
 ## Version History
+
+**v3.3** (15-07-2026) - Europeanized + M&M debrief method
+- Reanchored to European standards (ENISA methodology, NIS2 Art. 21/23,
+  ISO/IEC 27035 + 27001 A.5.24-27, DORA Art. 24-25 scope note); US
+  frameworks (CISA CTEP, NIST 800-84) demoted to optional/historical
+  reference, mechanics retained
+- Learning Phase replaced with the M&M guide-not-judge debrief method:
+  reveal -> round-share -> map-to-reality, five phases, four-category
+  question taxonomy (operational / strategic / cultural-behavioural /
+  learning transfer), written implementation intentions; facilitator
+  never scores live, capability reads are T4 observer-scored only
+- Fixed stale generator paths (pre-PAI install prefix) to
+  `~/.claude/skills/`; SKILL.md version footer now tracks this
+  changelog (was stuck at 2.0)
 
 **v3.2** (2026-03-07) - HTML Artifact Templates
 - Added `generate-html-artifacts.ts` — six self-contained HTML/CSS templates for UI-heavy artifact subtypes: `phishing_email` (macOS Mail client chrome), `ransomware_note` (dark splash screen with BTC address), `fraudulent_invoice` (white paper layout), `network_capture` (Wireshark dark table), `dark_web_listing` (terminal green-on-black), `scada_interface` (industrial HMI with CSS gauges)
